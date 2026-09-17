@@ -1,0 +1,194 @@
+package com.overdrive.app.camera.dilink5;
+
+import com.overdrive.app.camera.CameraProfiles;
+import com.overdrive.app.config.UnifiedConfigManager;
+
+import org.json.JSONObject;
+
+import java.lang.reflect.Method;
+import java.util.Locale;
+
+/**
+ * Shark 6 vs Sealion 7 DiLink 5 platform detection and live-view camera-id mapping.
+ *
+ * <p>Do not use {@code Build.MODEL} alone — field Shark units often report
+ * {@code BYD AUTO}. Prefer selected model / camera profile, then
+ * {@code ro.vehicle.type} containing {@code DXF}. Explicit Sealion only wins
+ * when the unit is not DXF (stale sealion7 config is common on Shark).
+ *
+ * <p>Logical FastCam indices: 0 front, 1 right, 2 rear, 3 left, 4 = 2x2 mosaic,
+ * 5 = 4K mosaic, 6 = cabin/dashcam. Hardware remap is only via {@code --cams} /
+ * {@code nativeSetCameraMapping}.
+ */
+public final class DiLink5PlatformHelper {
+
+    private static volatile Boolean sharkProfile;
+
+    private DiLink5PlatformHelper() {}
+
+    public static boolean isSharkProfile() {
+        return isSharkProfile(null);
+    }
+
+    /**
+     * Cached once. {@code configuredModel} is an optional hint (e.g. modelId
+     * from config) merged with the selected-model / profile / DXF order.
+     */
+    public static boolean isSharkProfile(String configuredModel) {
+        if (sharkProfile != null) {
+            return sharkProfile;
+        }
+        synchronized (DiLink5PlatformHelper.class) {
+            if (sharkProfile != null) {
+                return sharkProfile;
+            }
+            sharkProfile = inferShark(configuredModel);
+            return sharkProfile;
+        }
+    }
+
+    /** Reset cached inference (tests / after config or APK change). */
+    public static void resetForTests() {
+        sharkProfile = null;
+    }
+
+    /** Clear cached Shark/Sealion decision so DXF / config can be re-read. */
+    public static void clearCachedProfile() {
+        sharkProfile = null;
+    }
+
+    private static boolean inferShark(String configuredModel) {
+        String vehicleType = getSystemProperty("ro.vehicle.type", "");
+        if (vehicleType == null || vehicleType.isEmpty()) {
+            vehicleType = readPropViaGetprop("ro.vehicle.type");
+        }
+        boolean dxf = vehicleType.toUpperCase(Locale.US).contains("DXF");
+
+        // 1) selectedModel / hint
+        String selected = readSelectedVehicleModel();
+        String hint = preferHint(selected, configuredModel);
+        if (hint != null && !hint.isEmpty()) {
+            String n = normalize(hint);
+            if (n.contains("shark")) {
+                return true;
+            }
+            // Stale auto-config often writes sealion7 on Shark DXF units — DXF wins.
+            if (n.contains("sealion") && !dxf) {
+                return false;
+            }
+        }
+
+        // 2) camera.cameraProfile
+        String profile = readCameraProfile();
+        if (CameraProfiles.PROFILE_DILINK5_SHARK.equalsIgnoreCase(profile)
+                || "dilink5_shark6".equalsIgnoreCase(profile)) {
+            return true;
+        }
+        if (CameraProfiles.PROFILE_DILINK5_SEALION7.equalsIgnoreCase(profile) && !dxf) {
+            return false;
+        }
+
+        // 3) ro.vehicle.type contains DXF (e.g. Di5.0_DXF_W)
+        return dxf;
+    }
+
+    private static String readPropViaGetprop(String key) {
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"/system/bin/getprop", key});
+            try (java.io.BufferedReader br =
+                         new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                String line = br.readLine();
+                p.waitFor();
+                return line != null ? line.trim() : "";
+            }
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    /** Default FastCam camera id for live stream startup (2x2 mosaic). */
+    public static int defaultAisCameraId() {
+        return 4;
+    }
+
+    /**
+     * Map live-view UI mode to FastCam {@code setActiveCamera} logical index.
+     *
+     * <p>UI: 0=ALL→4, 1=Front→0, 2=Right→1, 3=Rear→2, 4=Left→3, 6/9=Cabin→6.
+     */
+    public static int aisByteForViewMode(int uiMode) {
+        switch (uiMode) {
+            case 0:
+                return 4; // 2x2 mosaic
+            case 1:
+                return 0; // Front
+            case 2:
+                return 1; // Right
+            case 3:
+                return 2; // Rear
+            case 4:
+                return 3; // Left
+            case 6:
+            case 9:
+                return 6; // Cabin / dashcam
+            default:
+                return defaultAisCameraId();
+        }
+    }
+
+    private static String preferHint(String selected, String fallback) {
+        if (selected != null && !selected.isEmpty() && !"auto".equalsIgnoreCase(selected)) {
+            return selected;
+        }
+        if (fallback != null && !fallback.isEmpty() && !"auto".equalsIgnoreCase(fallback)) {
+            return fallback;
+        }
+        return selected != null ? selected : fallback;
+    }
+
+    private static String readSelectedVehicleModel() {
+        try {
+            String id = UnifiedConfigManager.getSelectedVehicleModelId();
+            if (id != null && !id.trim().isEmpty()) {
+                return id.trim();
+            }
+        } catch (Throwable ignored) {}
+        try {
+            JSONObject vehicle = UnifiedConfigManager.loadConfig().optJSONObject("vehicle");
+            if (vehicle == null) return "";
+            String modelId = vehicle.optString("modelId", "").trim();
+            if (!modelId.isEmpty()) return modelId;
+            return vehicle.optString("selectedModel", "").trim();
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private static String readCameraProfile() {
+        try {
+            JSONObject camera = UnifiedConfigManager.loadConfig().optJSONObject("camera");
+            if (camera == null) return CameraProfiles.PROFILE_AUTO;
+            return camera.optString("cameraProfile", CameraProfiles.PROFILE_AUTO);
+        } catch (Throwable ignored) {
+            return CameraProfiles.PROFILE_AUTO;
+        }
+    }
+
+    private static String normalize(String value) {
+        return value.toLowerCase(Locale.US)
+                .replace("-", "")
+                .replace("_", "")
+                .replace(" ", "");
+    }
+
+    private static String getSystemProperty(String key, String def) {
+        try {
+            Class<?> clazz = Class.forName("android.os.SystemProperties");
+            Method get = clazz.getMethod("get", String.class, String.class);
+            Object result = get.invoke(null, key, def);
+            return result != null ? result.toString() : def;
+        } catch (Throwable ignored) {
+            return def;
+        }
+    }
+}

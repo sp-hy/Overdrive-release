@@ -1,4 +1,5 @@
 package com.overdrive.app.ui
+import com.overdrive.app.util.ScratchPaths
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -361,7 +362,7 @@ open class MainActivity : AppCompatActivity() {
             // shared daemonStartupManager.adbLauncher — allocating a fresh
             // AdbDaemonLauncher here would leak its non-daemon executor + a
             // tunnel-poll scheduler thread on every postDelayed firing.
-            daemonStartupManager.adbLauncher.executeShellCommand("rm -f /data/local/tmp/overdrive_update.apk", object : com.overdrive.app.launcher.AdbDaemonLauncher.LaunchCallback {
+            daemonStartupManager.adbLauncher.executeShellCommand("rm -f ${ScratchPaths.path("overdrive_update.apk")}", object : com.overdrive.app.launcher.AdbDaemonLauncher.LaunchCallback {
                 override fun onLog(message: String) {}
                 override fun onLaunched() {}
                 override fun onError(error: String) {}
@@ -737,7 +738,7 @@ open class MainActivity : AppCompatActivity() {
                 // Reuse the shared adbLauncher; see comment at the rm site
                 // for why allocating a fresh one here leaks resources.
                 val hintFile = com.overdrive.app.updater
-                    .UpdateLifecycle.TELEGRAM_POST_UPDATE_HINT_FILE
+                    .UpdateLifecycle.telegramPostUpdateHintFile()
                 daemonStartupManager.adbLauncher.executeShellCommand(
                     "echo '$shown' > $hintFile",
                     object : com.overdrive.app.launcher
@@ -935,6 +936,15 @@ open class MainActivity : AppCompatActivity() {
                     // host here rather than registering a second callback.
                     onboardingHost?.onDaemonAuthGranted()
                         ?: run { com.overdrive.app.onboarding.OnboardingState.get(this@MainActivity).daemonAuthorized = true }
+
+                    // Drop stale shell-UID fast_cam_capture before daemon bring-up so
+                    // live view does not keep the previous APK's --cams map.
+                    Thread({
+                        try {
+                            com.overdrive.app.camera.dilink5.DiLink5PlatformHelper.clearCachedProfile()
+                            com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.killStaleCaptureProcesses()
+                        } catch (_: Throwable) {}
+                    }, "od-kill-stale-fastcam-auth").apply { isDaemon = true }.start()
                     
                     // Re-run daemon initialization now that ADB is authorized
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
@@ -4065,7 +4075,7 @@ open class MainActivity : AppCompatActivity() {
             var frameMismatch = false
 
             try {
-                val sohFile = java.io.File("/data/local/tmp/abrp_soh_estimate.properties")
+                val sohFile = java.io.File(ScratchPaths.path("abrp_soh_estimate.properties"))
                 if (sohFile.exists()) {
                     val props = java.util.Properties()
                     java.io.FileInputStream(sohFile).use { props.load(it) }
@@ -4403,7 +4413,7 @@ open class MainActivity : AppCompatActivity() {
                     }
                 } else {
                     // Fallback: try direct file delete (works if app has permissions)
-                    val sohFile = java.io.File("/data/local/tmp/abrp_soh_estimate.properties")
+                    val sohFile = java.io.File(ScratchPaths.path("abrp_soh_estimate.properties"))
                     val deleted = if (sohFile.exists()) sohFile.delete() else true
                     runOnUiThread {
                         if (deleted) {

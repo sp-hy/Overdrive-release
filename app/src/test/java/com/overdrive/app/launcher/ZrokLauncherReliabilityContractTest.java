@@ -76,9 +76,9 @@ public class ZrokLauncherReliabilityContractTest {
                 "app/src/main/java/com/overdrive/app/ui/daemon/DaemonStartupManager.kt");
 
         assertTrue(launcher.contains(
-                "[ -f /data/local/tmp/zrok.disabled ] || "));
+                "ScratchPaths.path(\"zrok.disabled\")"));
         assertTrue(updater.contains(
-                "[ -f /data/local/tmp/zrok.disabled ] || "));
+                "ScratchPaths.path(\"zrok.disabled\")"));
         assertTrue(startup.contains(
                 "type == DaemonType.ZROK_TUNNEL"));
         assertTrue(startup.contains(
