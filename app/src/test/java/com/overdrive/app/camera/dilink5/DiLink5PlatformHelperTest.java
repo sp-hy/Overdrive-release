@@ -30,13 +30,23 @@ public class DiLink5PlatformHelperTest {
     }
 
     @Test
-    public void explicitSelectionsWinOverDxfInference() {
-        assertFalse(DiLink5PlatformHelper.inferShark(
+    public void dxfHardwareIdentityWinsOverPersistedSelections() {
+        assertTrue(DiLink5PlatformHelper.inferShark(
                 "sealion7", "", CameraProfiles.PROFILE_AUTO, "Di5.0_DXF_W"));
-        assertFalse(DiLink5PlatformHelper.inferShark(
+        assertTrue(DiLink5PlatformHelper.inferShark(
                 "", "", CameraProfiles.PROFILE_DILINK5_SEALION7, "Di5.0_DXF_W"));
         assertTrue(DiLink5PlatformHelper.inferShark(
                 "shark6", "", CameraProfiles.PROFILE_AUTO, "other"));
+    }
+
+    @Test
+    public void unsetCosmeticModelIsNotAConfiguredVehicleHint() {
+        assertEquals("", DiLink5PlatformHelper.resolveConfiguredModel(
+                "sealion7", "unset", ""));
+        assertEquals("sealion7", DiLink5PlatformHelper.resolveConfiguredModel(
+                "sealion7", "user", ""));
+        assertEquals("shark6", DiLink5PlatformHelper.resolveConfiguredModel(
+                "shark6", "legacy", ""));
     }
 
     @Test

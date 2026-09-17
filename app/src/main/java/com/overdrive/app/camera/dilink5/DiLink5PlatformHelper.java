@@ -2,6 +2,7 @@ package com.overdrive.app.camera.dilink5;
 
 import com.overdrive.app.camera.CameraProfiles;
 import com.overdrive.app.config.UnifiedConfigManager;
+import com.overdrive.app.config.VehicleModelSelection;
 
 import org.json.JSONObject;
 
@@ -12,9 +13,9 @@ import java.util.Locale;
  * Shark 6 vs Sealion 7 DiLink 5 platform detection and live-view camera-id mapping.
  *
  * <p>Do not use {@code Build.MODEL} alone — field Shark units often report
- * {@code BYD AUTO}. Prefer selected model / camera profile, then
- * {@code ro.vehicle.type} containing {@code DXF}. An explicit model/profile
- * selection wins over hardware inference.
+ * {@code BYD AUTO}. {@code ro.vehicle.type} containing {@code DXF} is the
+ * authoritative Shark hardware signal. Persisted model/profile values are
+ * fallbacks because fresh installs may contain cosmetic Sealion defaults.
  *
  * <p>Logical FastCam indices: 0 front, 1 right, 2 rear, 3 left, 4 = 2x2 mosaic,
  * 5 = 4K mosaic, 6 = cabin/dashcam. Hardware remap is only via {@code --cams} /
@@ -62,7 +63,7 @@ public final class DiLink5PlatformHelper {
         if (vehicleType == null || vehicleType.isEmpty()) {
             vehicleType = readPropViaGetprop("ro.vehicle.type");
         }
-        String selected = readSelectedVehicleModel();
+        String selected = readConfiguredModelHint();
         String profile = readCameraProfile();
         return inferShark(configuredModel, selected, profile, vehicleType);
     }
@@ -73,7 +74,13 @@ public final class DiLink5PlatformHelper {
             String selectedModel,
             String cameraProfile,
             String vehicleType) {
-        // 1) selectedModel / hint
+        // Hardware identity wins over stale/default persisted selections.
+        if (vehicleType != null
+                && vehicleType.toUpperCase(Locale.US).contains("DXF")) {
+            return true;
+        }
+
+        // Fallback 1) selectedModel / hint
         String hint = preferHint(selectedModel, configuredModel);
         if (hint != null && !hint.isEmpty()) {
             String n = normalize(hint);
@@ -85,7 +92,7 @@ public final class DiLink5PlatformHelper {
             }
         }
 
-        // 2) camera.cameraProfile
+        // Fallback 2) camera.cameraProfile
         if (CameraProfiles.PROFILE_DILINK5_SHARK.equalsIgnoreCase(cameraProfile)
                 || "dilink5_shark6".equalsIgnoreCase(cameraProfile)) {
             return true;
@@ -94,9 +101,7 @@ public final class DiLink5PlatformHelper {
             return false;
         }
 
-        // 3) ro.vehicle.type contains DXF (e.g. Di5.0_DXF_W)
-        return vehicleType != null
-                && vehicleType.toUpperCase(Locale.US).contains("DXF");
+        return false;
     }
 
     private static String readPropViaGetprop(String key) {
@@ -153,7 +158,7 @@ public final class DiLink5PlatformHelper {
         return selected != null ? selected : fallback;
     }
 
-    private static String readSelectedVehicleModel() {
+    static String readConfiguredModelHint() {
         try {
             String id = UnifiedConfigManager.getSelectedVehicleModelId();
             if (id != null && !id.trim().isEmpty()) {
@@ -164,11 +169,22 @@ public final class DiLink5PlatformHelper {
             JSONObject vehicle = UnifiedConfigManager.loadConfig().optJSONObject("vehicle");
             if (vehicle == null) return "";
             String modelId = vehicle.optString("modelId", "").trim();
-            if (!modelId.isEmpty()) return modelId;
-            return vehicle.optString("selectedModel", "").trim();
+            String source = vehicle.optString("modelSource", "");
+            String selectedModel = vehicle.optString("selectedModel", "").trim();
+            return resolveConfiguredModel(modelId, source, selectedModel);
         } catch (Throwable ignored) {
             return "";
         }
+    }
+
+    static String resolveConfiguredModel(
+            String modelId,
+            String modelSource,
+            String selectedModel) {
+        String resolved = VehicleModelSelection.resolvedModelId(modelId, modelSource);
+        if (resolved != null) return resolved;
+        resolved = VehicleModelSelection.resolvedModelId(selectedModel, modelSource);
+        return resolved != null ? resolved : "";
     }
 
     private static String readCameraProfile() {
