@@ -13,8 +13,8 @@ import java.util.Locale;
  *
  * <p>Do not use {@code Build.MODEL} alone — field Shark units often report
  * {@code BYD AUTO}. Prefer selected model / camera profile, then
- * {@code ro.vehicle.type} containing {@code DXF}. Explicit Sealion only wins
- * when the unit is not DXF (stale sealion7 config is common on Shark).
+ * {@code ro.vehicle.type} containing {@code DXF}. An explicit model/profile
+ * selection wins over hardware inference.
  *
  * <p>Logical FastCam indices: 0 front, 1 right, 2 rear, 3 left, 4 = 2x2 mosaic,
  * 5 = 4K mosaic, 6 = cabin/dashcam. Hardware remap is only via {@code --cams} /
@@ -62,34 +62,41 @@ public final class DiLink5PlatformHelper {
         if (vehicleType == null || vehicleType.isEmpty()) {
             vehicleType = readPropViaGetprop("ro.vehicle.type");
         }
-        boolean dxf = vehicleType.toUpperCase(Locale.US).contains("DXF");
-
-        // 1) selectedModel / hint
         String selected = readSelectedVehicleModel();
-        String hint = preferHint(selected, configuredModel);
+        String profile = readCameraProfile();
+        return inferShark(configuredModel, selected, profile, vehicleType);
+    }
+
+    /** Pure signal evaluation kept separate so precedence is unit-testable. */
+    static boolean inferShark(
+            String configuredModel,
+            String selectedModel,
+            String cameraProfile,
+            String vehicleType) {
+        // 1) selectedModel / hint
+        String hint = preferHint(selectedModel, configuredModel);
         if (hint != null && !hint.isEmpty()) {
             String n = normalize(hint);
             if (n.contains("shark")) {
                 return true;
             }
-            // Stale auto-config often writes sealion7 on Shark DXF units — DXF wins.
-            if (n.contains("sealion") && !dxf) {
+            if (n.contains("sealion")) {
                 return false;
             }
         }
 
         // 2) camera.cameraProfile
-        String profile = readCameraProfile();
-        if (CameraProfiles.PROFILE_DILINK5_SHARK.equalsIgnoreCase(profile)
-                || "dilink5_shark6".equalsIgnoreCase(profile)) {
+        if (CameraProfiles.PROFILE_DILINK5_SHARK.equalsIgnoreCase(cameraProfile)
+                || "dilink5_shark6".equalsIgnoreCase(cameraProfile)) {
             return true;
         }
-        if (CameraProfiles.PROFILE_DILINK5_SEALION7.equalsIgnoreCase(profile) && !dxf) {
+        if (CameraProfiles.PROFILE_DILINK5_SEALION7.equalsIgnoreCase(cameraProfile)) {
             return false;
         }
 
         // 3) ro.vehicle.type contains DXF (e.g. Di5.0_DXF_W)
-        return dxf;
+        return vehicleType != null
+                && vehicleType.toUpperCase(Locale.US).contains("DXF");
     }
 
     private static String readPropViaGetprop(String key) {

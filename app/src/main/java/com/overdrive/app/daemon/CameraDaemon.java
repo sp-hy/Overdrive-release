@@ -582,10 +582,6 @@ public class CameraDaemon {
         // else app-files fallback). Must run before any lock/log/config paths.
         com.overdrive.app.util.ScratchPaths.syncFromEnv();
         com.overdrive.app.util.ScratchPaths.ensureDir();
-        // New APK must not inherit a stale fast_cam_capture from the prior install.
-        try {
-            com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.killStaleCaptureProcesses();
-        } catch (Throwable ignored) {}
 
         initFileLogging();
 
@@ -609,6 +605,12 @@ public class CameraDaemon {
                         .isSelected(vehicleModeActivation.activeMode, null)
                 && com.overdrive.app.camera.dilink5.DiLink5Platform
                         .isSelected(vehicleModeActivation.previousMode, null);
+
+        // Only the singleton owner may replace capture. Doing this before the
+        // lock let a rejected duplicate daemon kill the healthy owner's stream.
+        try {
+            com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.killStaleCaptureProcesses();
+        } catch (Throwable ignored) {}
 
         // Clear any stale screen-deterrent flags left from a previous unclean
         // exit (SIGKILL bypasses our shutdown hook). Without this, AccSentry

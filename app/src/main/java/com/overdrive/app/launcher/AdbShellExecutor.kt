@@ -823,14 +823,6 @@ class AdbShellExecutor(private val context: Context) {
                 if (result.exitCode == 0) result.allOutput else null
             }
             logger.info(TAG, "Scratch probe done: ${ScratchPaths.describe()}")
-            // After ADB is up, kill any shell-UID FastCam left from a prior APK
-            // (app-UID pkill cannot). Required for Shark --cams map to take effect.
-            try {
-                com.overdrive.app.camera.dilink5.DiLink5PlatformHelper.clearCachedProfile()
-                com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.killStaleCaptureProcesses()
-            } catch (t: Throwable) {
-                logger.warn(TAG, "stale FastCam kill after connect: ${t.message}")
-            }
         } catch (t: Throwable) {
             logger.warn(TAG, "Scratch probe failed: ${t.message}")
             // Allow a later connect to retry if this one blew up mid-probe.

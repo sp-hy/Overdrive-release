@@ -41,18 +41,6 @@ class OverdriveApplication : Application() {
             Log.w("OverdriveApplication", "DiLink5 JNI warm skipped: ${error.message}")
         }
 
-        // Best-effort: drop stale shell-UID fast_cam_capture left across reinstall.
-        // App-UID pkill cannot signal uid 2000; ADB shell can. Runs async so boot
-        // is not blocked if ADB is not yet connected.
-        Thread({
-            try {
-                com.overdrive.app.camera.dilink5.DiLink5PlatformHelper.clearCachedProfile()
-                com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.killStaleCaptureProcesses()
-            } catch (error: Throwable) {
-                Log.w("OverdriveApplication", "stale FastCam kill skipped: ${error.message}")
-            }
-        }, "od-kill-stale-fastcam").apply { isDaemon = true }.start()
-
         // Apply the user-picked locale before any Activity/Fragment is created.
         // Auto-mode (or unset) writes an empty list so AppCompat falls back to
         // Locale.getDefault() — i.e. the BYD head unit's system language.

@@ -128,14 +128,15 @@ public class ZrokLauncherReliabilityContractTest {
 
         assertTrue(adb.contains("fun execute(command: String, callback: ShellCallback)"));
         assertTrue(adb.contains("fun executeSensitive("));
-        // The raw command must reach dadb unchanged (shellGuarded runs it on
-        // the generation-tagged connection); logs see only $commandForLog.
-        assertTrue(adb.contains("conn.dadb.shell(command)"));
+        // shellGuarded runs the remapped command on the generation-tagged
+        // connection; logs still see only the redacted $commandForLog.
+        assertTrue(adb.contains(
+                "conn.dadb.shell(ScratchPaths.prepareShellCommand(command))"));
         assertTrue(adb.contains("$commandForLog"));
 
         assertTrue(telegram.contains("ZrokRuntimeProbe.shellQuote(enableToken)"));
         assertTrue(telegram.contains("ZrokRuntimeProbe.extractErrorMessage(enableResult)"));
-        assertTrue(telegram.contains("environment.json && echo yes || echo no"));
+        assertTrue(telegram.contains("ScratchPaths.path(\".zrok/environment.json\")"));
         assertFalse(telegram.contains("Using reserved token:"));
         assertFalse(telegram.contains("Enable result:"));
     }

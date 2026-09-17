@@ -937,15 +937,6 @@ open class MainActivity : AppCompatActivity() {
                     onboardingHost?.onDaemonAuthGranted()
                         ?: run { com.overdrive.app.onboarding.OnboardingState.get(this@MainActivity).daemonAuthorized = true }
 
-                    // Drop stale shell-UID fast_cam_capture before daemon bring-up so
-                    // live view does not keep the previous APK's --cams map.
-                    Thread({
-                        try {
-                            com.overdrive.app.camera.dilink5.DiLink5PlatformHelper.clearCachedProfile()
-                            com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.killStaleCaptureProcesses()
-                        } catch (_: Throwable) {}
-                    }, "od-kill-stale-fastcam-auth").apply { isDaemon = true }.start()
-                    
                     // Re-run daemon initialization now that ADB is authorized
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         daemonStartupManager.initializeOnAppLaunch()

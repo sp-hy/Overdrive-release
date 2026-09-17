@@ -2,6 +2,7 @@ package com.overdrive.app.camera.dilink5;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.overdrive.app.camera.CameraProfile;
@@ -29,13 +30,29 @@ public class DiLink5PlatformHelperTest {
     }
 
     @Test
-    public void sealionProfileWithoutExplicitModelDoesNotBlockDxf() {
-        // Persisted dilink5_sealion7 from old auto-detect must not win when the
-        // unit is DXF Shark and the user did not pick Sealion. We cannot set
-        // SystemProperties here; just ensure explicit sealion model still wins.
-        assertFalse(DiLink5PlatformHelper.isSharkProfile("BYD Sealion 7"));
-        DiLink5PlatformHelper.clearCachedProfile();
-        assertTrue(DiLink5PlatformHelper.isSharkProfile("shark6"));
+    public void explicitSelectionsWinOverDxfInference() {
+        assertFalse(DiLink5PlatformHelper.inferShark(
+                "sealion7", "", CameraProfiles.PROFILE_AUTO, "Di5.0_DXF_W"));
+        assertFalse(DiLink5PlatformHelper.inferShark(
+                "", "", CameraProfiles.PROFILE_DILINK5_SEALION7, "Di5.0_DXF_W"));
+        assertTrue(DiLink5PlatformHelper.inferShark(
+                "shark6", "", CameraProfiles.PROFILE_AUTO, "other"));
+    }
+
+    @Test
+    public void dxfIdentifiesSharkWithoutExplicitSelection() {
+        assertTrue(DiLink5PlatformHelper.inferShark(
+                "auto", "auto", CameraProfiles.PROFILE_AUTO, "Di5.0_DXF_W"));
+        assertFalse(DiLink5PlatformHelper.inferShark(
+                "auto", "auto", CameraProfiles.PROFILE_AUTO, "Di5.0_XYZ_W"));
+    }
+
+    @Test
+    public void cameraMappingOverrideIsStrictlyValidated() {
+        assertEquals("8,9,5,4", DiLink5QCarCamBackend.normalizeCameraMapping(" 8, 9,5,4 "));
+        assertNull(DiLink5QCarCamBackend.normalizeCameraMapping("8,9,5"));
+        assertNull(DiLink5QCarCamBackend.normalizeCameraMapping("8,9,5; reboot,4"));
+        assertNull(DiLink5QCarCamBackend.normalizeCameraMapping("8,9,-1,4"));
     }
 
     @Test
