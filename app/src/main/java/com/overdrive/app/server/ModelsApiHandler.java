@@ -2,6 +2,7 @@ package com.overdrive.app.server;
 import com.overdrive.app.util.ScratchPaths;
 
 import com.overdrive.app.battery.BatteryChemistryMetadata;
+import com.overdrive.app.camera.dilink5.DiLink5PlatformHelper;
 import com.overdrive.app.config.UnifiedConfigManager;
 import com.overdrive.app.config.VehicleModelSelection;
 import com.overdrive.app.daemon.CameraDaemon;
@@ -642,7 +643,12 @@ public class ModelsApiHandler {
         } catch (Exception unavailable) {
             throw new SelectedModelConfigUnavailableException(unavailable);
         }
-        return nominalKwhForModelId(modelId);
+        double selectedKwh = nominalKwhForModelId(modelId);
+        if (selectedKwh > 0) return selectedKwh;
+
+        return DiLink5PlatformHelper.isSharkHardware()
+                ? nominalKwhForModelId("shark6")
+                : 0;
     }
 
     /** Best-effort drivetrain hint for capacity validation. Unknown stays false. */

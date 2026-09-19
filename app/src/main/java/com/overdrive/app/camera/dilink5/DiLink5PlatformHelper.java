@@ -58,6 +58,20 @@ public final class DiLink5PlatformHelper {
         sharkProfile = null;
     }
 
+    /** Hardware-only Shark check; safe while the unified-config lock is held. */
+    public static boolean isSharkHardware() {
+        String vehicleType = getSystemProperty("ro.vehicle.type", "");
+        if (vehicleType == null || vehicleType.isEmpty()) {
+            vehicleType = readPropViaGetprop("ro.vehicle.type");
+        }
+        return isDxfVehicleType(vehicleType);
+    }
+
+    static boolean isDxfVehicleType(String vehicleType) {
+        return vehicleType != null
+                && vehicleType.toUpperCase(Locale.US).contains("DXF");
+    }
+
     private static boolean inferShark(String configuredModel) {
         String vehicleType = getSystemProperty("ro.vehicle.type", "");
         if (vehicleType == null || vehicleType.isEmpty()) {
@@ -75,8 +89,7 @@ public final class DiLink5PlatformHelper {
             String cameraProfile,
             String vehicleType) {
         // Hardware identity wins over stale/default persisted selections.
-        if (vehicleType != null
-                && vehicleType.toUpperCase(Locale.US).contains("DXF")) {
+        if (isDxfVehicleType(vehicleType)) {
             return true;
         }
 

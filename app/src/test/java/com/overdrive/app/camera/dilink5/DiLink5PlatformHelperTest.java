@@ -51,6 +51,8 @@ public class DiLink5PlatformHelperTest {
 
     @Test
     public void dxfIdentifiesSharkWithoutExplicitSelection() {
+        assertTrue(DiLink5PlatformHelper.isDxfVehicleType("Di5.0_DXF_W"));
+        assertFalse(DiLink5PlatformHelper.isDxfVehicleType("Di5.0_XYZ_W"));
         assertTrue(DiLink5PlatformHelper.inferShark(
                 "auto", "auto", CameraProfiles.PROFILE_AUTO, "Di5.0_DXF_W"));
         assertFalse(DiLink5PlatformHelper.inferShark(
