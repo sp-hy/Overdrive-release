@@ -36,7 +36,8 @@ class OverdriveApplication : Application() {
 
         // Warm DiLink5 JNI after scratch is known (static init may race Context).
         try {
-            com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.ensureJniLoaded()
+            com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend
+                .ensureNativeLibrariesLoaded(null)
         } catch (error: Throwable) {
             Log.w("OverdriveApplication", "DiLink5 JNI warm skipped: ${error.message}")
         }

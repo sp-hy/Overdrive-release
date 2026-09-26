@@ -606,12 +606,6 @@ public class CameraDaemon {
                 && com.overdrive.app.camera.dilink5.DiLink5Platform
                         .isSelected(vehicleModeActivation.previousMode, null);
 
-        // Only the singleton owner may replace capture. Doing this before the
-        // lock let a rejected duplicate daemon kill the healthy owner's stream.
-        try {
-            com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.killStaleCaptureProcesses();
-        } catch (Throwable ignored) {}
-
         // Clear any stale screen-deterrent flags left from a previous unclean
         // exit (SIGKILL bypasses our shutdown hook). Without this, AccSentry
         // could see a future screenDeterrentActiveUntilMs and skip backlight
@@ -9923,15 +9917,6 @@ public class CameraDaemon {
             }
         } else {
             log("Surveillance library already loaded");
-        }
-
-        try {
-            if (com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.ensureJniLoaded()) {
-                log("DiLink5 JNI ready (cams map="
-                        + com.overdrive.app.camera.dilink5.DiLink5QCarCamBackend.getCameraMappingArgs() + ")");
-            }
-        } catch (Throwable t) {
-            log("WARN: DiLink5 JNI warm failed: " + t.getMessage());
         }
 
         // Load libod.so via explicit path too — System.loadLibrary("od") can't

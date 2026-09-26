@@ -1569,7 +1569,7 @@ class ZrokLauncher(
     fun isTunnelManaged(callback: (Boolean) -> Unit) {
         adbShellExecutor.execute(
             command = "ps -A -o ARGS 2>/dev/null | " +
-                    "grep -E 'zrok share|sh $ZROK_WATCHDOG_SCRIPT' | grep -v grep | head -1",
+                    "grep -E 'zrok share|sh $zrokWatchdogScript' | grep -v grep | head -1",
             callback = object : AdbShellExecutor.ShellCallback {
                 override fun onSuccess(output: String) {
                     val managed = output.trim().isNotEmpty()

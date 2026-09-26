@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 import com.overdrive.app.camera.CameraProfile;
 import com.overdrive.app.camera.CameraProfiles;
 import com.overdrive.app.camera.CameraRole;
+import com.overdrive.app.camera.PanoramicSlice;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -88,25 +89,16 @@ public class DiLink5PlatformHelperTest {
     }
 
     @Test
-    public void dilink5LogicalMappingsAreFrontRightRearLeft() {
+    public void dilink5LogicalMappingsUseMainMosaicSlices() {
         CameraProfile profile = CameraProfiles.get(CameraProfiles.PROFILE_DILINK5_SHARK);
-        assertEquals(Integer.valueOf(0),
-                profile.getDefaultRoleMappings().get(CameraRole.PANO_FRONT).getCameraId());
-        assertEquals(Integer.valueOf(1),
-                profile.getDefaultRoleMappings().get(CameraRole.PANO_RIGHT).getCameraId());
-        assertEquals(Integer.valueOf(2),
-                profile.getDefaultRoleMappings().get(CameraRole.PANO_REAR).getCameraId());
-        assertEquals(Integer.valueOf(3),
-                profile.getDefaultRoleMappings().get(CameraRole.PANO_LEFT).getCameraId());
+        assertEquals(PanoramicSlice.SLICE_4,
+                profile.getDefaultRoleMappings().get(CameraRole.PANO_FRONT).getPanoramicSlice());
+        assertEquals(PanoramicSlice.SLICE_3,
+                profile.getDefaultRoleMappings().get(CameraRole.PANO_RIGHT).getPanoramicSlice());
+        assertEquals(PanoramicSlice.SLICE_1,
+                profile.getDefaultRoleMappings().get(CameraRole.PANO_REAR).getPanoramicSlice());
+        assertEquals(PanoramicSlice.SLICE_2,
+                profile.getDefaultRoleMappings().get(CameraRole.PANO_LEFT).getPanoramicSlice());
     }
 
-    @Test
-    public void isExecCapableRejectsMediaRw() {
-        assertFalse(DiLink5QCarCamBackend.isExecCapableLocation(
-                "/storage/emulated/0/Android/data/com.overdrive.app/files/daemon/fast_cam_capture"));
-        assertTrue(DiLink5QCarCamBackend.isExecCapableLocation(
-                "/data/app/~~abc/com.overdrive.app-xyz/lib/arm64/libfast_cam_capture.so"));
-        assertTrue(DiLink5QCarCamBackend.isExecCapableLocation(
-                "/data/local/tmp/fast_cam_capture"));
-    }
 }
